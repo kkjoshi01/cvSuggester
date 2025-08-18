@@ -107,6 +107,8 @@ export default function Home() {
     <main>
       <h1>Welcome to CV Suggester</h1>
       <p>Your one-stop solution for creating impressive CVs effortlessly.</p>
+      <br />
+      <p>To be added</p>
     </main>
   )
 }
