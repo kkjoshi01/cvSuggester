@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import OpenAI from "openai";
 
 export default function Home() {
   const [cvFile, setCvFile] = useState(null);
@@ -14,6 +13,15 @@ export default function Home() {
     setCvFile(file ?? null);
   }
 
+  async function getSuggestions(cvFile) {
+    const res = await fetch("/api/suggest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cvFile })
+    });
+    return res.json();
+  }
+
   function formatBytes(bytes) {
     if (!bytes) return "";
     const units = ["B", "KB", "MB", "GB"];
@@ -21,11 +29,16 @@ export default function Home() {
     return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
   }
 
-  function handleSubmit(e) {
-    e.preventDefault();
-    // TODO: hook up your suggestion logic here
-    console.log({ cvFile, targetRole, topJobs, painPoints });
-    alert("Submitted! (Wire this up to your suggester logic.)");
+  async function submitForm({cvFile, targetRole, topJobs, painPoints}) {
+    const fd = new FormData();
+    fd.append("cv", cvFile);
+    fd.append("targetRole", targetRole);
+    fd.append("topJobs", topJobs);
+    fd.append("painPoints", painPoints);
+
+    const res = await fetch("/api/suggest", { method: "POST", body: fd });
+    const data = await res.json();
+    const obj = JSON.parse(data.suggestions);
   }
 
   return (
@@ -41,7 +54,7 @@ export default function Home() {
         </header>
 
         <form
-          onSubmit={handleSubmit}
+          onSubmit={submitForm}
           className="space-y-6 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-950/70 p-6 shadow-sm backdrop-blur"
         >
           {/* Import CV */}
