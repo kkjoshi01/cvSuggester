@@ -138,7 +138,7 @@ export default function Home() {
           {/* Actions */}
           <div className="flex items-center justify-between pt-2">
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Your files never leave your browser unless you wire up an API.
+              Please note, this is a prototype. Your data is not stored.
             </p>
             <button
               type="submit"
