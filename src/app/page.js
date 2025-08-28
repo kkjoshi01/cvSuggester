@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import OpenAI from "openai";
 
 export default function Home() {
   const [cvFile, setCvFile] = useState(null);
