@@ -13,20 +13,42 @@ export default function Home() {
     setCvFile(file ?? null);
   }
 
-  async function getSuggestions(cvFile) {
-    const res = await fetch("/api/suggest", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cvFile })
-    });
-    return res.json();
-  }
-
   function formatBytes(bytes) {
     if (!bytes) return "";
     const units = ["B", "KB", "MB", "GB"];
     const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
     return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
+  }
+
+  // async function getSuggestions(cvFile) {
+  //   const res = await fetch("/api/suggest", {
+  //     method: "POST",
+  //     headers: { "Content-Type": "application/json" },
+  //     body: JSON.stringify({ cvFile })
+  //   });
+  //   return res.json();
+  // }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!cvFile) return;
+
+    const fd = new FormData();
+    fd.append("cv", cvFile);
+    fd.append("targetRole", targetRole);
+    fd.append("topJobs", topJobs);
+    fd.append("painPoints", painPoints);
+
+    const res = await fetch("/api/suggest", { method: "POST", body: fd });
+    const data = await res.json();
+
+    let suggestions;
+    try {
+      suggestions = JSON.parse(data.suggestions);
+      console.log("Suggestions:", suggestions);
+    } catch (error) {
+      console.error("Error parsing suggestions:", error);
+    }
   }
 
   async function submitForm({cvFile, targetRole, topJobs, painPoints}) {
@@ -54,7 +76,7 @@ export default function Home() {
         </header>
 
         <form
-          onSubmit={submitForm}
+          onSubmit={handleSubmit}
           className="space-y-6 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-950/70 p-6 shadow-sm backdrop-blur"
         >
           {/* Import CV */}
