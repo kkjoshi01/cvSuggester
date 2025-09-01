@@ -1,13 +1,10 @@
-import fs from "fs";
-import formidable from "formidable";
+// app/api/suggest/route.js
 import OpenAI from "openai";
 
-export const config = {
-  api: { bodyParser: false },
-};
+export const runtime = "nodejs";          // Node for file uploading
+export const dynamic = "force-dynamic";   // avoid caching responses
 
 function toStr(v) {
-  if (Array.isArray(v)) return v[0] ?? "";
   return typeof v === "string" ? v : (v ?? "").toString();
 }
 
@@ -18,7 +15,7 @@ OBJECTIVE
 
 CONTEXT
 - Target role: ${targetRole || ""}
-- Job requirements (paste or summarize key bullets): 
+- Job requirements (paste or summarize key bullets):
 ${topJobs || ""}
 - Candidate concerns (gaps, switches, ATS worries):
 ${painPoints || ""}
@@ -54,51 +51,42 @@ OUTPUT (valid JSON only)
 
 CONSTRAINTS
 - Maximise signal per word. Avoid repetition.
-- Use exact UK formatting (e.g., “per cent” optional, “optimise/behaviour” spellings OK).
+- Use exact UK formatting (e.g., “optimise/behaviour” spellings OK).
 - If information is insufficient, request the *minimum* extra detail needed as a single list under "clarifications_needed".`;
 }
 
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
+export async function POST(req) {
   try {
-    // Parse multipart form-data
-    const { fields, files } = await new Promise((resolve, reject) => {
-      const form = formidable({
-        multiples: false,
-        keepExtensions: true,
-        maxFileSize: 10 * 1024 * 1024, // 10 MB limit
-      });
-      form.parse(req, (err, fields, files) => (err ? reject(err) : resolve({ fields, files })));
-    });
+    const form = await req.formData();
+    const file = form.get("cv");
+    const targetRole = toStr(form.get("targetRole"));
+    const topJobs = toStr(form.get("topJobs"));
+    const painPoints = toStr(form.get("painPoints"));
 
-    const targetRole = toStr(fields.targetRole);
-    const topJobs   = toStr(fields.topJobs);
-    const painPoints = toStr(fields.painPoints);
-    const cv = files.cv || files.cvFile;
-
-    if (!cv) return res.status(400).json({ error: "No CV file uploaded" });
-
-    // Basic type check (optional)
-    const mime = cv.mimetype || "";
-    const allowed = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
-    if (!allowed.includes(mime)) {
-      return res.status(400).json({ error: `Unsupported file type: ${mime}` });
+    if (!file) {
+      return Response.json({ error: "No CV file uploaded" }, { status: 400 });
+    }
+    // Optional: basic type check
+    const allowed = [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ];
+    if (file.type && !allowed.includes(file.type)) {
+      return Response.json({ error: `Unsupported file type: ${file.type}` }, { status: 400 });
     }
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    // ⚠️ FIX: use `file`, not `file_id`
+    // Upload the PDF/Doc straight from the Blob we got from formData
     const uploaded = await openai.files.create({
-      file: fs.createReadStream(cv.filepath),
+      file,                 // <-- works with Web File/Blob in App Router
       purpose: "user_data",
     });
 
     const prompt = buildPrompt({ targetRole, topJobs, painPoints });
 
-    const response = await openai.responses.create({
+    const resp = await openai.responses.create({
       model: "gpt-4o-mini",
       response_format: { type: "json_object" },
       input: [
@@ -106,23 +94,18 @@ export default async function handler(req, res) {
           role: "user",
           content: [
             { type: "input_text", text: prompt },
-            // Attach uploaded file by its id
             { type: "input_file", file_id: uploaded.id },
           ],
         },
       ],
     });
 
-    // Prefer the convenience property, but guard just in case
-    const suggestions = response.output_text
-      ?? (response.output?.[0]?.content?.[0]?.text ?? "");
+    const suggestions =
+      resp.output_text ?? (resp.output?.[0]?.content?.[0]?.text ?? "");
 
-    return res.status(200).json({
-      suggestions,
-      file_id: uploaded.id,
-    });
-  } catch (error) {
-    console.error("Error:", error);
-    return res.status(500).json({ error: error.message });
+    return Response.json({ suggestions, file_id: uploaded.id });
+  } catch (err) {
+    console.error(err);
+    return Response.json({ error: err.message }, { status: 500 });
   }
 }

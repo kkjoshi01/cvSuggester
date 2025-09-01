@@ -40,6 +40,12 @@ export default function Home() {
     fd.append("painPoints", painPoints);
 
     const res = await fetch("/api/suggest", { method: "POST", body: fd });
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("API error:", text);
+      alert(`API error: ${res.status} : ${text}`);
+      return;
+    }
     const data = await res.json();
 
     let suggestions;
@@ -49,18 +55,6 @@ export default function Home() {
     } catch (error) {
       console.error("Error parsing suggestions:", error);
     }
-  }
-
-  async function submitForm({cvFile, targetRole, topJobs, painPoints}) {
-    const fd = new FormData();
-    fd.append("cv", cvFile);
-    fd.append("targetRole", targetRole);
-    fd.append("topJobs", topJobs);
-    fd.append("painPoints", painPoints);
-
-    const res = await fetch("/api/suggest", { method: "POST", body: fd });
-    const data = await res.json();
-    const obj = JSON.parse(data.suggestions);
   }
 
   return (
