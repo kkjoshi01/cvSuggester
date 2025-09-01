@@ -76,7 +76,10 @@ export async function POST(req) {
       return Response.json({ error: `Unsupported file type: ${file.type}` }, { status: 400 });
     }
 
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const openai = new OpenAI({ 
+      apiKey: process.env.OPENAI_API_KEY,
+      project: process.env.OPENAI_PROJECT_ID,  
+   });
 
     // Upload the PDF/Doc straight from the Blob we got from formData
     const uploaded = await openai.files.create({
@@ -87,8 +90,7 @@ export async function POST(req) {
     const prompt = buildPrompt({ targetRole, topJobs, painPoints });
 
     const resp = await openai.responses.create({
-      model: "gpt-4o-mini",
-      response_format: { type: "json_object" },
+      model: "gpt-5-mini",
       input: [
         {
           role: "user",
